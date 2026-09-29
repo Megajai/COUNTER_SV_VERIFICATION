@@ -1,0 +1,69 @@
+class ram_model;
+   
+
+   ram_trans wrmon_data;
+
+   
+
+   static logic[3:0] ref_count = 0;
+   
+
+   mailbox #(ram_trans) wr2rm;
+   
+   mailbox #(ram_trans) rm2sb;
+
+   
+   function new(mailbox #(ram_trans) wr2rm,
+               mailbox #(ram_trans) rm2sb);
+      this.wr2rm = wr2rm;
+      //this.rd2rm = rd2rm;
+      this.rm2sb = rm2sb;
+   endfunction: new
+
+   
+        virtual task counter(ram_trans model_count);
+           begin
+                 if(!model_count.reset_n)
+                          ref_count <= 4'd0;
+
+                 else if(model_count.load)
+                          ref_count <= model_count.data_in;
+
+                else begin
+                         if(model_count.up_down == 0) begin
+         // UP counter
+                                  if(ref_count >= 4'd11)
+                                    ref_count <= 4'd0;
+                                  else
+                                    ref_count <= ref_count + 1'b1;
+                          end
+
+                 else begin
+         // DOWN counter
+                          if(ref_count <= 4'd0)
+                                  ref_count <= 4'd11;
+                          else
+                                    ref_count <= ref_count - 1'b1;
+                 end
+             end
+         end
+        endtask
+
+
+   //In virtual task start
+   virtual task start();
+      //in fork join_none
+      fork
+         begin
+                forever
+                    begin
+                        wr2rm.get(wrmon_data);
+                        counter(wrmon_data);
+                        wrmon_data.count = ref_count;
+                        rm2sb.put(wrmon_data);
+                    end
+         end
+      join_none
+   endtask: start
+
+endclass: ram_model

@@ -1,0 +1,27 @@
+class ram_trans;
+
+        rand bit [3:0]data_in;
+        rand bit reset_n;
+        rand bit load;
+        rand bit up_down;
+
+        logic [3:0] count;
+
+        constraint DATA{ data_in inside {[2:8]};}
+        constraint ld{load dist{1:=30,0:=79};}
+        constraint mode{up_down dist {1:=50,0:=50};}
+        constraint res {reset_n dist {0:=10,1:=70};}
+
+        virtual function void display(input string str);
+                $display("---------------%s---------------",str);
+                $display("NUMBER OF TRANSACTIONS = %d",number_of_transactions);
+
+                $display("up_down = %d",up_down);
+                $display("reset = %d",reset_n);
+                $display("load = %d",load);
+                $display("DATA_IN = %d",data_in);
+                $display("count = %d",count);
+                $display("-----------------------------------");
+        endfunction
+
+endclass: ram_trans

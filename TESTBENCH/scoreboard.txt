@@ -1,0 +1,101 @@
+class ram_sb;
+   //Declare an event DONE
+   event DONE;
+
+
+   static int ref_data_count,rm_data_count,data_verified;
+
+   //Declare ram_trans handles as 'rm_data','rcvd_data' and cov_data
+   ram_trans rm_data;
+   ram_trans rcvd_data;
+   ram_trans cov_data;
+
+   //Declare two mailboxes as 'rm2sb','rdmon2sb' parameterized by ram_trans
+   mailbox #(ram_trans) rm2sb;      //ref model to sb
+   mailbox #(ram_trans) rdmon2sb;   //rdmon to sb
+
+    covergroup mem_coverage;
+        option.per_instance = 1;
+
+        DATA : coverpoint cov_data.data_in{
+               bins LOW = {[2:3]};
+               bins MID = {[4:6]};
+               bins HIGH = {[4:6]};
+         }
+        LOAD : coverpoint cov_data.load{
+                bins LOW = {0};
+                bins HIGH = {1};
+        }
+        UP_DOWN : coverpoint cov_data.up_down{
+                bins LOW = {0};
+                bins HIGH = {1};
+        }
+        RST : coverpoint cov_data.reset_n{
+                bins LOW = {0};
+                bins HIGH = {1};
+        }
+        COUNT : coverpoint cov_data.count{
+                bins LOW = {[0:11]};
+                bins HIGH = {11,0};
+        }
+        LOADXDATA : cross LOAD,DATA,RST,UP_DOWN;
+        endgroup
+
+   function new(mailbox #(ram_trans) rm2sb,
+                mailbox #(ram_trans) rdmon2sb);
+      this.rm2sb    = rm2sb;
+      this.rdmon2sb = rdmon2sb;
+      mem_coverage  = new;
+   endfunction: new
+
+   //In virtual task start
+   virtual task start();
+      //Within fork join_none, inside begin end
+      fork
+        while(1)
+                 begin
+               //Get the data from mailbox rm2sb
+               rm2sb.get(rm_data);
+               //Increment rm_data_count
+               rm_data_count++;
+               //Get the data from mailbox rdmon2sb
+               rdmon2sb.get(rcvd_data);
+               //Increment mon_data_count
+               ref_data_count++;
+               //Call the check task and pass 'rcvd_data' handle as the input argument
+               check(rcvd_data);
+        end
+      join_none
+   endtask: start
+
+   // Understand and include the virtual task check
+   virtual task check(ram_trans rc_data);
+        begin
+            if(rm_data.count == rc_data.count)
+                $display("COUNT MATCHES");
+            else
+                $display("COUNT DOESN'T MATCH");
+        end
+
+            cov_data = new rm_data;
+            mem_coverage.sample();
+
+            //Increment data_verified
+            data_verified++;
+            //Trigger the event if the verified data count is equal to the sum of number of read and read-write transactions
+            if(data_verified >= number_of_transactions)
+               begin
+                  ->DONE;
+               end
+
+   endtask: check
+
+   virtual function void report();
+      $display(" ------------------------ SCOREBOARD REPORT ----------------------- \n ");
+      $display("DATA FROM REFERENCE MODEL = %d\n",rm_data_count);
+      $display("DATA FROM READ MONITOR= %d",ref_data_count);
+      $display("DATA VERIFIED = %d",data_verified);
+      $display(" ------------------------------------------------------------------ \n ");
+   endfunction: report
+
+endclass: ram_sb

@@ -1,0 +1,60 @@
+class ram_read_mon;
+
+   
+   virtual ram_if.RD_MON_MP rd_mon_if;
+
+   
+   ram_trans rddata, data2sb;
+
+   
+      mailbox #(ram_trans) mon2sb;
+
+   
+
+   function new(virtual ram_if.RD_MON_MP rd_mon_if,
+               mailbox #(ram_trans) mon2sb);
+      this.rd_mon_if = rd_mon_if;
+      //this.mon2rm    = mon2rm;
+      this.mon2sb    = mon2sb;
+      this.rddata    = new;
+   endfunction: new
+
+
+   virtual task monitor();
+     @(rd_mon_if.rd_mon_cb);
+      begin
+         if(rd_mon_if.rd_mon_cb.resetn == 1)
+           begin
+                rddata.count = rd_mon_if.rd_mon_cb.count;
+        
+                 rddata.display("DATA FROM READ MONITOR");
+           end
+      end
+   endtask: monitor
+
+
+   //In virtual task start
+   virtual task start();
+      //within fork-join_none
+      //In forever loop
+      fork
+         forever
+        //repeat(number_of_transactions)
+            begin
+               //Call the monitor task
+               //Understand the provided monitor task
+               //Monitor task samples the interface signals
+               //according to the protocol and convert to transaction items
+               monitor();
+               //Shallow copy rddata to data2sb;
+               //Shallow copy rddata to data2rm;
+               data2sb = new rddata;
+               //data2rm = new rddata;
+               //Put the transaction item into two mailboxes mon2rm and mon2sb
+               //mon2rm.put(data2rm);
+               mon2sb.put(data2sb);
+            end
+      join_none
+   endtask: start
+
+endclass: ram_read_mon
